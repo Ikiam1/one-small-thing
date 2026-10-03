@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#120d1f">
+<title>One small thing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #120d1f;
+    --ink: #f4ecff;
+    --muted: #a99bc4;
+    --pink: #ff5c9a;
+    --violet: #9b5cff;
+    --yellow: #ffd23f;
+    --cyan: #2fe6d6;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Chakra Petch", "Hiragino Sans", system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    overflow: hidden;
+    touch-action: manipulation;
+  }
+
+  .screen {
+    position: absolute; inset: 0;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 20px;
+  }
+  .screen.active { display: flex; }
+
+  h1 { font-size: clamp(2rem, 9vw, 2.8rem); line-height: 1.1; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+  p  { margin: 0; color: var(--muted); font-size: 1.05rem; line-height: 1.5; max-width: 30ch; }
+
+  .emoji-row { font-size: 2.2rem; letter-spacing: 0.35em; padding-left: 0.35em; }
+
+  button { font-family: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
+
+  .cta {
+    background: var(--pink);
+    color: #1a0b17;
+    border: 0;
+    border-radius: 14px;
+    padding: 16px 34px;
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+  .cta:active { transform: scale(0.97); }
+  .ghost {
+    background: none; border: 0; color: var(--muted);
+    font-size: 0.95rem; padding: 10px 14px; text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  /* ---- game ---- */
+  #game { justify-content: space-between; }
+  .hud { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .dots { display: flex; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #2c2342; transition: background .3s; }
+  .dot.done { background: var(--yellow); }
+  .dot.now  { background: var(--ink); }
+  #status { font-size: 1.15rem; font-weight: 600; min-height: 1.6em; }
+
+  .pads {
+    width: 100%; max-width: 420px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    aspect-ratio: 1 / 1;
+  }
+  .pad {
+    --c: var(--pink);
+    background: #1c1430;
+    border: 3px solid var(--c);
+    border-radius: 26px;
+    font-size: clamp(3rem, 16vw, 4.6rem);
+    display: grid; place-items: center;
+    transition: background .08s, box-shadow .08s, transform .08s;
+    padding: 0;
+  }
+  .pad[data-note="D"]  { --c: var(--pink); }
+  .pad[data-note="A"]  { --c: var(--violet); }
+  .pad[data-note="E"]  { --c: var(--yellow); }
+  .pad[data-note="F#"] { --c: var(--cyan); }
+  .pad.lit {
+    background: var(--c);
+    box-shadow: 0 0 36px var(--c);
+    transform: scale(0.96);
+  }
+  .pads.glow .pad { box-shadow: 0 0 22px var(--c); }
+  .pad.hint { animation: hint 0.9s ease-in-out infinite; }
+  @keyframes hint { 50% { box-shadow: 0 0 26px var(--c); } }
+  .pads.locked .pad { pointer-events: none; }
+
+  #replay { visibility: hidden; }
+  #replay.show { visibility: visible; }
+
+  /* ---- reveal ---- */
+  #hai {
+    background: var(--cyan);
+    color: #06201e;
+    border: 0;
+    border-radius: 20px;
+    padding: 20px 56px;
+    font-size: 1.9rem;
+    font-weight: 700;
+    box-shadow: 0 0 40px rgba(47,230,214,.45);
+  }
+  #hai small { display: block; font-size: 0.8rem; font-weight: 600; opacity: .75; }
+  #hai:active { transform: scale(0.97); }
+
+  /* ---- sad dialog ---- */
+  #sad {
+    position: absolute; inset: 0; display: none;
+    background: rgba(10,6,20,.88);
+    align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+    text-align: center; padding: 24px;
+  }
+  #sad.show { display: flex; }
+  #sad .big { font-size: 4rem; }
+
+  /* ---- finale ---- */
+  .fall {
+    position: absolute; top: -10%; font-size: 2rem; pointer-events: none;
+    animation: fall linear forwards;
+  }
+  @keyframes fall { to { transform: translateY(115vh) rotate(360deg); } }
+
+  .shake { animation: shake .35s; }
+  @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pad.hint, .shake { animation: none; }
+    .fall { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 1. Start (the tap also unlocks audio on iPhone) -->
+<section id="start" class="screen active">
+  <div class="emoji-row">🥰😈🔫🦾</div>
+  <h1>One small thing before the last page</h1>
+  <p>It takes about a minute. You can't lose. Turn your sound on.</p>
+  <button class="cta" id="startBtn">Tap to start</button>
+</section>
+
+<!-- 2. Game -->
+<section id="game" class="screen">
+  <div class="hud">
+    <div class="dots" id="dots"></div>
+    <div id="status" aria-live="polite"></div>
+  </div>
+  <div class="pads locked" id="pads">
+    <button class="pad" data-note="D"  aria-label="Pink pad">🥰</button>
+    <button class="pad" data-note="A"  aria-label="Purple pad">😈</button>
+    <button class="pad" data-note="E"  aria-label="Yellow pad">🔫</button>
+    <button class="pad" data-note="F#" aria-label="Cyan pad">🦾</button>
+  </div>
+  <button class="ghost" id="replay">Listen again</button>
+</section>
+
+<!-- 3. Unlocked -->
+<section id="reveal" class="screen">
+  <div class="emoji-row">🥰😈🔫🦾</div>
+  <h1>Last page unlocked</h1>
+  <p>The question is on the paper. Your answer is here.</p>
+  <button id="hai">はい<small>hai</small></button>
+  <button class="ghost" id="iie">いいえ · iie</button>
+</section>
+
+<!-- 4. Finale -->
+<section id="done" class="screen">
+  <div class="emoji-row">🥰😈🔫🦾</div>
+  <h1>はい!</h1>
+  <p>Tiernos. Safados. Bounty hunters. サイバーサイコ (cyber psychos).</p>
+  <p>彼女 (kanojo) &amp; 彼氏 (kareshi)</p>
+</section>
+
+<div id="sad">
+  <div class="big">🥺</div>
+  <h1 style="font-size:1.8rem">Are you sure?</h1>
+  <button class="cta" id="sadBack">Let me think again</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- CONFIG: tune these ---------- */
+  // Frequencies in Hz. The four distinct notes of the chorus phrase.
+  // If it sounds like the wrong octave, shift these (x2 = one octave up, /2 = down).
+  const FREQ = { "D": 293.66, "A": 440.00, "E": 329.63, "F#": 369.99, "G": 392.00 };
+
+  // The phrase, with repeats: D A A A A E E E F#
+  const MELODY = ["D", "A", "A", "A", "A", "E", "E", "E", "F#"];
+
+  // How many notes of the melody each round uses.
+  const ROUNDS = [3, 6, 9];
+
+  const NOTE_MS = 430;       // time between notes during playback (rounds)
+
+  // Full chorus melody for the finale, transcribed from the score.
+  // Each entry: [note, start, length], measured in EIGHTH notes.
+  // (Half rest + quarter rest + eighth rest = the 7-eighth gap between phrases.)
+  const EIGHTH_MS = 320;     // length of one eighth note (my guess at the tempo: ~94 bpm). Bigger = slower.
+  const SONG = [
+    // phrase 1: D A A A A E E E F#
+    ["D", 0, 1], ["A", 1, 1], ["A", 2, 1], ["A", 3, 1], ["A", 4, 1],
+    ["E", 5, 1.5], ["E", 6.5, 0.5], ["E", 7, 1], ["F#", 8, 1],
+    // phrase 2: D A A A A E E E G F# F#  (G and the last F# are tied notes)
+    ["D", 16, 1], ["A", 17, 1], ["A", 18, 1], ["A", 19, 1], ["A", 20, 1],
+    ["E", 21, 1.5], ["E", 22.5, 0.5], ["E", 23, 1], ["G", 24, 3],
+    ["F#", 27, 1], ["F#", 28, 3]
+  ];
+  const HINT_AFTER = 2;      // mistakes in a round before the next pad starts to glow
+  /* ---------------------------------------- */
+
+  const $ = (id) => document.getElementById(id);
+  const screens = ["start", "game", "reveal", "done"];
+  const pads = $("pads");
+  const padEls = {};
+  pads.querySelectorAll(".pad").forEach((el) => (padEls[el.dataset.note] = el));
+
+  let ctx = null;
+  let round = 0;
+  let pos = 0;
+  let mistakes = 0;
+  let playing = false;
+  let timers = [];
+
+  function show(id) {
+    screens.forEach((s) => $(s).classList.toggle("active", s === id));
+  }
+
+  /* ---------- audio ---------- */
+  function ensureAudio() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+    }
+    if (ctx.state === "suspended") ctx.resume();
+  }
+
+  function tone(freq, dur) {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    gain.connect(ctx.destination);
+    // two soft oscillators = warmer than a bare sine
+    ["sine", "triangle"].forEach((type, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      g.gain.value = i === 0 ? 1 : 0.25;
+      o.type = type;
+      o.frequency.value = freq;
+      o.connect(g); g.connect(gain);
+      o.start(t); o.stop(t + dur + 0.05);
+    });
+  }
+
+  const flashTimers = {};
+  function flash(note, ms) {
+    const el = padEls[note];
+    if (!el) {                       // a note with no pad (G): softly glow the whole grid
+      pads.classList.add("glow");
+      clearTimeout(flashTimers.glow);
+      flashTimers.glow = setTimeout(() => pads.classList.remove("glow"), ms);
+      return;
+    }
+    el.classList.add("lit");
+    clearTimeout(flashTimers[note]); // repeated notes: cancel the previous "turn off"
+    flashTimers[note] = setTimeout(() => el.classList.remove("lit"), ms);
+  }
+
+  function playNote(note, dur) {
+    tone(FREQ[note], dur || 0.5);
+    flash(note, Math.min(300, (dur || 0.5) * 1000));
+  }
+
+  /* ---------- game flow ---------- */
+  function setDots() {
+    const wrap = $("dots");
+    wrap.innerHTML = "";
+    ROUNDS.forEach((_, i) => {
+      const d = document.createElement("div");
+      d.className = "dot" + (i < round ? " done" : i === round ? " now" : "");
+      wrap.appendChild(d);
+    });
+  }
+
+  function clearHints() {
+    Object.values(padEls).forEach((el) => el.classList.remove("hint"));
+  }
+
+  function clearTimers() {
+    timers.forEach(clearTimeout);
+    timers = [];
+  }
+
+  function status(text) { $("status").textContent = text; }
+
+  function playSequence(then) {
+    clearTimers();
+    clearHints();
+    playing = true;
+    pads.classList.add("locked");
+    $("replay").classList.remove("show");
+    status("Listen…");
+    const seq = MELODY.slice(0, ROUNDS[round]);
+    seq.forEach((note, i) => {
+      timers.push(setTimeout(() => playNote(note, 0.42), 500 + i * NOTE_MS));
+    });
+    timers.push(setTimeout(() => {
+      playing = false;
+      pads.classList.remove("locked");
+      $("replay").classList.add("show");
+      status("Your turn");
+      pos = 0;
+      updateHint();
+      if (then) then();
+    }, 500 + seq.length * NOTE_MS + 150));
+  }
+
+  function updateHint() {
+    clearHints();
+    if (mistakes >= HINT_AFTER) {
+      const next = MELODY[pos];
+      padEls[next].classList.add("hint");
+    }
+  }
+
+  function startRound() {
+    setDots();
+    mistakes = 0;
+    pos = 0;
+    playSequence();
+  }
+
+  function onPad(note) {
+    if (playing) return;
+    ensureAudio();
+    const expected = MELODY[pos];
+    const total = ROUNDS[round];
+
+    if (note === expected) {
+      playNote(note, 0.45);
+      pos++;
+      updateHint();
+      if (pos >= total) {
+        playing = true;
+        pads.classList.add("locked");
+        clearHints();
+        $("replay").classList.remove("show");
+        round++;
+        if (round >= ROUNDS.length) {
+          status("That's the song 🥰");
+          timers.push(setTimeout(finishGame, 900));
+        } else {
+          status("Nice. Next one is a little longer");
+          timers.push(setTimeout(startRound, 1300));
+        }
+      }
+    } else {
+      mistakes++;
+      pads.classList.remove("shake");
+      void pads.offsetWidth;
+      pads.classList.add("shake");
+      status("Almost. Listen again");
+      playing = true;
+      pads.classList.add("locked");
+      timers.push(setTimeout(() => playSequence(), 800));
+    }
+  }
+
+  function playSong(done) {
+    clearTimers();
+    playing = true;
+    pads.classList.add("locked");
+    status("Do you know this one? 🎶");
+    const lead = 600;
+    SONG.forEach(([note, start, len]) => {
+      timers.push(setTimeout(() => {
+        tone(FREQ[note], (len * EIGHTH_MS * 1.25) / 1000);
+        flash(note, Math.min(len * EIGHTH_MS * 0.8, 220));
+      }, lead + start * EIGHTH_MS));
+    });
+    const last = SONG[SONG.length - 1];
+    timers.push(setTimeout(done, lead + (last[1] + last[2]) * EIGHTH_MS + 900));
+  }
+
+  function finishGame() {
+    setDots();
+    playSong(() => show("reveal"));
+  }
+
+  /* ---------- finale ---------- */
+  function confetti() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const set = ["🥰", "😈", "🔫", "🦾"];
+    for (let i = 0; i < 36; i++) {
+      const s = document.createElement("span");
+      s.className = "fall";
+      s.textContent = set[i % 4];
+      s.style.left = Math.random() * 94 + "vw";
+      s.style.animationDuration = 2.4 + Math.random() * 2.4 + "s";
+      s.style.animationDelay = Math.random() * 1.2 + "s";
+      document.body.appendChild(s);
+      setTimeout(() => s.remove(), 7000);
+    }
+  }
+
+  /* ---------- wiring ---------- */
+  $("startBtn").addEventListener("click", () => {
+    ensureAudio();
+    round = 0;
+    show("game");
+    startRound();
+  });
+
+  pads.querySelectorAll(".pad").forEach((el) => {
+    el.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      onPad(el.dataset.note);
+    });
+  });
+
+  $("replay").addEventListener("click", () => {
+    ensureAudio();
+    playSequence();
+  });
+
+  $("hai").addEventListener("click", () => {
+    ensureAudio();
+    show("done");
+    confetti();
+    [["D", 0], ["A", 140], ["F#", 280], ["A", 420], ["D", 560]].forEach(([n, ms]) =>
+      setTimeout(() => tone(FREQ[n] * 2, 0.6), ms)
+    );
+  });
+
+  $("iie").addEventListener("click", () => $("sad").classList.add("show"));
+  $("sadBack").addEventListener("click", () => $("sad").classList.remove("show"));
+})();
+</script>
+</body>
+</html>
